@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>表单注册</title>
+		<style>
+			body {
+				margin: 0;
+				padding: 0;
+				background-color: #f7f7f7;
+			}
+
+			ul {
+				margin: 0;
+				padding: 50px;
+				list-style: none;
+			}
+
+			.register {
+				width: 800px;
+				margin: 50px auto;
+				background-color: #fff;
+				border: 1px solid #ccc;
+				border-radius: 5px;
+			}
+
+			li {
+				display: flex;
+				margin: 20px 0;
+			}
+
+			label,
+			input {
+				display: block;
+				float: left;
+				height: 46px;
+				font-size: 24px;
+				box-sizing: border-box;
+				color: #333;
+			}
+
+			label {
+				width: 200px;
+				line-height: 46px;
+				margin-right: 30px;
+				text-align: right;
+			}
+
+			input {
+				width: 320px;
+				padding: 8px;
+				line-height: 1;
+				outline: none;
+				position: relative;
+			}
+
+			input.code {
+				width: 120px;
+			}
+
+			input.verify {
+				width: 190px;
+				margin-left: 10px;
+			}
+
+			input.disabled {
+				background-color: #ccc !important;
+			}
+
+			input[type="button"],
+			input[type="submit"] {
+				border: none;
+				color: #fff;
+				background-color: #e64145;
+				border-radius: 4px;
+				cursor: pointer;
+			}
+
+			.tips {
+				position: fixed;
+				top: 0;
+				width: 100%;
+				height: 40px;
+				text-align: center;
+			}
+
+			.tips p {
+				min-width: 300px;
+				max-width: 400px;
+				line-height: 40px;
+				margin: 0 auto;
+				color: #fff;
+				display: none;
+				background-color: #c91623;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="register">
+			<form id="ajaxForm">
+				<ul>
+					<li>
+						<label for="">用户名</label>
+						<input type="text" name="name" class="name" />
+					</li>
+					<li>
+						<label for="">请设置密码</label>
+						<input type="password" name="pass" class="pass" /><br />
+					</li>
+					<span style="display: block; padding-left: 230px; color: #c91623">必须包含大小写字母，数字和特殊字符，长度大于10位</span>
+					<li>
+						<label for="">请确认密码</label>
+						<input type="password" name="repass" class="repass" />
+					</li>
+					<li>
+						<label for="">验证手机</label>
+						<input type="text" name="mobile" class="mobile" />
+					</li>
+					<li>
+						<label for="">短信验证码</label>
+						<input type="text" name="code" class="code" />
+						<input type="button" value="获取验证码" class="verify" />
+					</li>
+					<li>
+						<label for=""></label>
+						<!-- <input type="button" class="submit" value="立即注册"> -->
+						<!-- <button></button> -->
+						<input type="submit" class="submit" value="立即注册" />
+					</li>
+				</ul>
+			</form>
+		</div>
+		<!-- 提示信息 -->
+		<div class="tips">
+			<p>用户名不能为空---</p>
+		</div>
+		<script src="../js/jquery-1.12.2.js"></script>
+		<script>
+			// 验证用户名，jQuery封装好了ajax
+			// 给用户名绑定失去焦点事件
+			$(".name").on("blur", function () {
+				// 获取用户名的值，并且去空格
+				//  let name = $(this).val().trim();
+				let name = $.trim($(this).val());
+				$.ajax({
+					type: "get",
+					url: "/validateName",
+					dataType: "json",
+					data: {
+						name: name,
+					},
+					beforeSend: function () {
+						// 用户名为空时，不能提交请求
+						if (!name) {
+							$(".tips p").text("用户名不能为空,请重新输入...").fadeIn(500).delay(2000).fadeOut(500);
+							// 制止请求的提交
+							return false;
+						}
+					},
+					success: function (res) {
+						if (res.code === 200) {
+							$(".tips p").text(res.msg).fadeIn(500).delay(2000).fadeOut(500);
+						}
+					},
+					// 不管请求提交成功或者失败，都会执行该方法
+					// complete: function () {
+					// 	$("#ajaxForm")[0].reset();
+					// },
+				});
+			});
+			// 获取验证码
+			$(".verify").on("click", function () {
+				if ($(this).hasClass("disabled")) {
+					return;
+				}
+				const phoneNum = $(".mobile").val().trim();
+				$.ajax({
+					type: "post",
+					url: "/getCode",
+					dataType: "json",
+					data: {
+						mobile: phoneNum,
+					},
+					beforeSend: function () {
+						// 点击按钮颜色变为灰色，并且禁用和添加倒计时
+						const regPhone = /^1[3-9]\d{9}$/;
+						if (!regPhone.test(phoneNum)) {
+							$(".tips p").text("手机号码不合法,请重新输入").fadeIn(500).delay(2000).fadeOut(500);
+							return false; // 阻止请求的发送
+						}
+						$(".verify").addClass("disabled");
+						let num = 6;
+						const timer = setInterval(() => {
+							num--;
+							if (num === 0) {
+								clearInterval(timer);
+								$(".verify").removeClass("disabled").val(`获取验证码`);
+								return;
+							}
+							$(".verify").val(`${num}后重新发送`);
+						}, 1000);
+					},
+					success: function (res) {
+						if (res.code === 200) {
+							$(".code").val(res.data);
+						}
+					},
+				});
+			});
+			/*
+				校验密码格式：
+					1、必须包含大小写字母，数字和特殊字符
+					2、密码长度必须大于10位
+			*/
+			$(".pass").on("blur", function () {
+				const password = $(this).val().trim();
+				const regPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[$@$!%*?&])[A-Za-z\d$@$!%*?&]{8,}/;
+				if (regPassword.test(password)) {
+					$(".tips p").text("密码合法").fadeIn(500).delay(2000).fadeOut(500);
+				} else {
+					$(".tips p").text("密码不符合规则，请重新输入").fadeIn(500).delay(2000).fadeOut(500);
+				}
+			});
+			// 判断密码是否一致
+			$(".repass").on("blur", function () {
+				const password = $.trim($(".pass").val());
+				const repassword = $.trim($(this).val());
+				if (password === repassword) {
+					$(".tips p").text("确认密码和密码一致").fadeIn(500).delay(2000).fadeOut(500);
+				} else {
+					$(".tips p").text("确认密码和密码不一致，请重新输入").fadeIn(500).delay(2000).fadeOut(500);
+					password = "";
+					repassword = "";
+				}
+			});
+			/*
+				用户注册，用过form表单提交数据
+					1、给form表单绑定提交事件，只有form表单才有该事件
+					2、取消表单的默认行为，通过event
+			*/
+			$("#ajaxForm").on("submit", function (event) {
+				// 取消表单的默认提交行为
+				event.preventDefault();
+				if ($(".submit").hasClass("disabled")) {
+					return;
+				}
+				$.ajax({
+					type: "post",
+					url: "/adduser",
+					dataType: "json",
+					// data: {
+					// 	name: "",
+					// }, 是表单提交，就不用每个字段一个一个的传了，直接用序列化形式
+					// 表单序列化 会将form标签中具有name属性的输入框 下拉菜单  文本域等等的值一并获取并拼接成'key=value&key=value'格式的字符串
+					// jQuery中的$.ajax函数对于data数据格式支持两种，一个是对象一个是拼接好的字符串
+					data: $(this).serialize(),
+					beforeSend: function () {
+						$(".submit").addClass("disabled");
+					},
+					success: function (res) {
+						if (res.code === 200) {
+							console.log(res);
+							$(".tips p").text(res.msg).fadeIn(500).delay(2000).fadeOut(500);
+						} else {
+							console.log(res);
+							$(".tips p").text(res.msg).fadeIn(500).delay(2000).fadeOut(500);
+						}
+					},
+					complete: function () {
+						$(".submit").removeClass("disabled");
+					},
+				});
+			});
+		</script>
+	</body>
+</html>
